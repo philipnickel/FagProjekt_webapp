@@ -1,0 +1,3 @@
+- lav fejlplot over tid for et givent N. 
+- analytisk udledning af konvergens O(hurlumhej)?
+
