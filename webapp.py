@@ -4,7 +4,20 @@ import plotly.graph_objs as go
 from dash import Dash, Input, Output, State, callback_context, dcc, html
 
 from calc_functions import (
-    compute_wave_propagation_opgave1 as compute_wave_propagation_opgave1,
+    compute_wave_propagation_opgave1,
+    compute_wave_propagation_opgave2,
+    compute_wave_propagation_opgave3,
+    compute_wave_propagation_opgave4,
+    compute_wave_propagation_projektplan_opgave1,
+    compute_wave_propagation_projektplan_opgave2,
+)
+from markdown_texts import (
+    markdown_text_opgave1,
+    markdown_text_opgave2,
+    markdown_text_opgave3,
+    markdown_text_opgave4,
+    markdown_text_projektplan_opgave1,
+    markdown_text_projektplan_opgave2,
 )
 
 # app = Dash(__name__)
@@ -15,7 +28,8 @@ app = Dash(__name__, external_stylesheets=external_stylesheets)
 app.title = "Opgaveløsninger til Fagprjekt"
 
 
-# Initial conditions and calculations
+# Initial values
+# has to be chosen later on depending on the task
 
 # Set initial conditions
 initial_L = 40
@@ -31,14 +45,11 @@ x, u_numerical, u_moving, steps = compute_wave_propagation_opgave1(
 )
 
 
-markdown_text = r"""
-## Optiske Solitoner 
-
-"""
-
 app.layout = html.Div(
     [
-        dcc.Markdown(children=markdown_text, mathjax=True, style={"fontSize": 24}),
+        dcc.Markdown(
+            children=markdown_text_opgave1, mathjax=True, style={"fontSize": 24}
+        ),
         html.Div(
             [
                 html.Div(
@@ -199,6 +210,36 @@ app.layout = html.Div(
             n_intervals=0,
             disabled=True,
         ),
+        html.Div(
+            [
+                dcc.Graph(
+                    id="3d-plot",
+                    figure={
+                        "data": [go.Surface(z=np.real(u_numerical))],
+                        "layout": go.Layout(
+                            title="Løsning til Lineære del af ikke-lineære Schrödingerligning",
+                            scene=dict(
+                                xaxis_title="x",
+                                yaxis_title="t",
+                                zaxis_title="u(x,t)",
+                                xaxis=dict(
+                                    tickvals=[], title="x"
+                                ),  # Remove x-axis tick mark values
+                                yaxis=dict(
+                                    tickvals=[], title="t"
+                                ),  # Remove y-axis tick mark values
+                                zaxis=dict(
+                                    tickvals=[], title="u(x,t)"
+                                ),  # Remove z-axis tick mark values
+                            ),
+                            width=1000,
+                            height=750,
+                            margin=dict(l=65, r=50, b=65, t=90),
+                        ),
+                    },
+                )
+            ]
+        ),
     ]
 )
 
@@ -221,18 +262,14 @@ app.layout = html.Div(
     ],
 )
 def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
-
     # Re-compute only if compute button is clicked
     ctx = callback_context
     if (
         not ctx.triggered
         or ctx.triggered[0]["prop_id"].split(".")[0] == "compute-button"
     ):
-        global x, u_numerical, u_moving, steps
-        x, u_numerical, u_moving, steps = compute_wave_propagation(
-            L, w, k0, v, N, dt, T
-        )
-
+        global x, u_numerical, steps
+        x, u_numerical, steps = compute_wave_propagation(L, w, k0, v, N, dt, T)
     fig = go.Figure(
         data=[
             go.Scatter(
@@ -240,13 +277,6 @@ def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
                 y=np.real(u_numerical[time_step, :]),
                 mode="lines",
                 name="Numerical FFT Solution",
-            ),
-            go.Scatter(
-                x=x,
-                y=u_moving[time_step, :],
-                mode="lines",
-                name="Analytical Solution",
-                line=dict(dash="dash"),
             ),
         ]
     )
@@ -259,6 +289,49 @@ def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
         hovermode="closest",
     )
     return fig
+
+
+@app.callback(
+    Output("3d-plot", "figure"),
+    [Input("compute-button", "n_clicks")],
+    [
+        State("L-value", "value"),
+        State("w-value", "value"),
+        State("k0-value", "value"),
+        State("v-value", "value"),
+        State("N-value", "value"),
+        State("dt-value", "value"),
+        State("T-value", "value"),
+    ],
+)
+def update_3d_plot(n_clicks, L, w, k0, v, N, dt, T):
+    # Re-compute only if compute button is clicked
+    ctx = callback_context
+    if (
+        not ctx.triggered
+        or ctx.triggered[0]["prop_id"].split(".")[0] == "compute-button"
+    ):
+        x, u_numerical, steps = compute_wave_propagation_opgave1(L, w, k0, v, N, dt, T)
+    fig_3d = {
+        "data": [go.Surface(z=np.real(u_numerical))],
+        "layout": go.Layout(
+            title="Løsning til Lineære del af ikke-lineære Schrödingerligning",
+            scene=dict(
+                xaxis_title="x",
+                yaxis_title="t",
+                zaxis_title="u(x,t)",
+                xaxis=dict(tickvals=[], title="x"),  # Remove x-axis tick mark values
+                yaxis=dict(tickvals=[], title="t"),  # Remove y-axis tick mark values
+                zaxis=dict(
+                    tickvals=[], title="u(x,t)"
+                ),  # Remove z-axis tick mark values
+            ),
+            width=1000,
+            height=750,
+            margin=dict(l=65, r=50, b=65, t=90),
+        ),
+    }
+    return fig_3d
 
 
 @app.callback(

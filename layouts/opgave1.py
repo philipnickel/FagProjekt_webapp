@@ -1,76 +1,7 @@
-import dash
 import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.graph_objs as go
-from dash import Input, Output, State, callback, callback_context, dcc, html
-
-external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
-
-
-dash.register_page(__name__)
-
-
-def compute_wave_propagation(L, w, k0, v, N, dt, T):
-    dx = L / N
-    steps = int(T / dt)
-    x = np.linspace(-L / 2, L / 2, N, endpoint=False)
-    k = 2 * np.pi * np.fft.fftfreq(N, d=dx)
-    k[0] = k[1]
-    u0 = np.exp(-(x**2) / w**2)
-    du0 = (2 * x) / (w**2) * v * np.exp(-(x**2 / w**2))
-
-    # Numerical solution using FFT
-    u_numerical = np.zeros((steps, N), dtype=np.complex64)
-    A_numerical = np.zeros((steps, N), dtype=np.complex64)
-    A_numerical[0, :] = np.fft.fft(u0)
-    B_numerical = np.zeros((steps, N), dtype=np.complex64)
-    B_numerical[0, :] = np.fft.fft(du0) / (v * k)
-
-    n_values = np.arange(1, steps)[:, np.newaxis]  # Add new axis to align shapes
-    u_numerical[1:, :] = A_numerical[0, :] * np.cos(
-        k * v * dt * n_values
-    ) + B_numerical[0, :] * np.sin(k * v * dt * n_values)
-
-    u_numerical = np.fft.ifft(u_numerical, axis=1)
-
-    u_moving = np.zeros((steps, N))
-    for i, ti in enumerate(np.linspace(0, T, steps)):
-        u_moving[i, :] = np.exp(-((x - v * ti) ** 2 / w**2))
-
-    return x, u_numerical, u_moving, steps
-
-
-# Set initial conditions
-initial_L = 40
-initial_w = 2
-initial_k0 = 5
-initial_v = 1
-initial_N = 256
-initial_dt = 0.025
-initial_T = 5
-
-# Perform initial computation
-x, u_numerical, u_moving, steps = compute_wave_propagation(
-    initial_L, initial_w, initial_k0, initial_v, initial_N, initial_dt, initial_T
-)
-
-markdown_text = r"""
-## Opgave 2.
-
-
-$$\frac{\partial^2 u}{\partial x^2} - \frac{1}{v^2} \frac{\partial^2 u}{\partial t^2} = 0$$
-Med begyndelsesbetingelse: 
-
-$
-u(x, 0) = \exp\left(-\frac{x^2}{w^2}\right) = f(x)
-$
-  og  
-$
-\frac{\partial u(x, 0)}{\partial t} = -v f'(x) = \frac{2x}{w^2} v \exp\left(-\frac{x^2}{w^2}\right)
-$
-
-"""
-
+from dash import Dash, Input, Output, State, callback_context, dcc, html
 
 layout = html.Div(
     [
@@ -239,11 +170,7 @@ layout = html.Div(
 )
 
 
-## Section 2
-# Callbacks for updating the figure, playing/pausing, and animation speed
-
-
-@callback(
+@app.callback(
     Output("wave-animation", "figure"),
     [Input("time-step-slider", "value"), Input("compute-button", "n_clicks")],
     [
@@ -257,6 +184,7 @@ layout = html.Div(
     ],
 )
 def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
+
     # Re-compute only if compute button is clicked
     ctx = callback_context
     if (
@@ -267,6 +195,7 @@ def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
         x, u_numerical, u_moving, steps = compute_wave_propagation(
             L, w, k0, v, N, dt, T
         )
+
     fig = go.Figure(
         data=[
             go.Scatter(
@@ -295,7 +224,7 @@ def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
     return fig
 
 
-@callback(
+@app.callback(
     [Output("interval-component", "disabled"), Output("play-pause-button", "children")],
     [Input("play-pause-button", "n_clicks")],
     [State("interval-component", "disabled")],
@@ -307,7 +236,7 @@ def toggle_play_pause(n_clicks, is_disabled):
         return True, "Play"
 
 
-@callback(
+@app.callback(
     Output("time-step-slider", "value"),
     [Input("interval-component", "n_intervals")],
     [State("time-step-slider", "value"), State("time-step-slider", "max")],
@@ -317,14 +246,16 @@ def advance_time_step(n_intervals, current_value, max_value):
     return new_value
 
 
-@callback(Output("interval-component", "interval"), [Input("speed-slider", "value")])
+@app.callback(
+    Output("interval-component", "interval"), [Input("speed-slider", "value")]
+)
 def update_speed(value):
     # Adjusting speed value conversion to interval if needed
     return max(200 - value, 10) * 10  # Example adjustment, modify as needed
 
 
 # Update 'max' property of the time-step slider
-@callback(
+@app.callback(
     Output("time-step-slider", "max"),
     [Input("compute-button", "n_clicks")],
     [State("T-value", "value"), State("dt-value", "value")],
