@@ -1,6 +1,4 @@
 import dash_bootstrap_components as dbc
-import dash_core_components as dcc
-import dash_html_components as html
 import numpy as np
 import plotly.graph_objs as go
 from dash import Dash, Input, Output, State, callback_context, dcc, html
@@ -69,7 +67,7 @@ $
 """
 
 
-layout = html.Div(
+app.layout = html.Div(
     [
         dcc.Markdown(children=markdown_text, mathjax=True, style={"fontSize": 24}),
         html.Div(
@@ -270,131 +268,143 @@ layout = html.Div(
 # Callbacks for updating the figure, playing/pausing, and animation speed
 
 
-def register_callbacks(app):
-    @app.callback(
-        Output("wave-animation", "figure"),
-        [Input("time-step-slider", "value"), Input("compute-button", "n_clicks")],
-        [
-            State("L-value", "value"),
-            State("w-value", "value"),
-            State("k0-value", "value"),
-            State("v-value", "value"),
-            State("N-value", "value"),
-            State("dt-value", "value"),
-            State("T-value", "value"),
-        ],
-    )
-    def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
-        # Re-compute only if compute button is clicked
-        ctx = callback_context
-        if (
-            not ctx.triggered
-            or ctx.triggered[0]["prop_id"].split(".")[0] == "compute-button"
-        ):
-            global x, u_numerical, steps
-            x, u_numerical, steps = compute_wave_propagation(L, w, k0, v, N, dt, T)
-        fig = go.Figure(
-            data=[
-                go.Scatter(
-                    x=x,
-                    y=np.real(u_numerical[time_step, :]),
-                    mode="lines",
-                    name="Numerical FFT Solution",
-                ),
-            ]
-        )
-        fig.update_layout(
-            title="Reeldel plottet",
-            xaxis={"title": "x"},
-            yaxis={"title": "Amplitude", "range": [-1, 1]},
-            margin={"l": 40, "b": 40, "t": 50, "r": 10},
-            legend={"x": 0, "y": 1},
-            hovermode="closest",
-        )
-        return fig
-
-    @app.callback(
-        Output("3d-plot", "figure"),
-        [Input("compute-button", "n_clicks")],
-        [
-            State("L-value", "value"),
-            State("w-value", "value"),
-            State("k0-value", "value"),
-            State("v-value", "value"),
-            State("N-value", "value"),
-            State("dt-value", "value"),
-            State("T-value", "value"),
-        ],
-    )
-    def update_3d_plot(n_clicks, L, w, k0, v, N, dt, T):
-        # Re-compute only if compute button is clicked
-        ctx = callback_context
-        if (
-            not ctx.triggered
-            or ctx.triggered[0]["prop_id"].split(".")[0] == "compute-button"
-        ):
-            x, u_numerical, steps = compute_wave_propagation(L, w, k0, v, N, dt, T)
-        fig_3d = {
-            "data": [go.Surface(z=np.real(u_numerical))],
-            "layout": go.Layout(
-                title="Løsning til Lineære del af ikke-lineære Schrödingerligning",
-                scene=dict(
-                    xaxis_title="x",
-                    yaxis_title="t",
-                    zaxis_title="u(x,t)",
-                    xaxis=dict(
-                        tickvals=[], title="x"
-                    ),  # Remove x-axis tick mark values
-                    yaxis=dict(
-                        tickvals=[], title="t"
-                    ),  # Remove y-axis tick mark values
-                    zaxis=dict(
-                        tickvals=[], title="u(x,t)"
-                    ),  # Remove z-axis tick mark values
-                ),
-                width=1000,
-                height=750,
-                margin=dict(l=65, r=50, b=65, t=90),
+@app.callback(
+    Output("wave-animation", "figure"),
+    [Input("time-step-slider", "value"), Input("compute-button", "n_clicks")],
+    [
+        State("L-value", "value"),
+        State("w-value", "value"),
+        State("k0-value", "value"),
+        State("v-value", "value"),
+        State("N-value", "value"),
+        State("dt-value", "value"),
+        State("T-value", "value"),
+    ],
+)
+def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
+    # Re-compute only if compute button is clicked
+    ctx = callback_context
+    if (
+        not ctx.triggered
+        or ctx.triggered[0]["prop_id"].split(".")[0] == "compute-button"
+    ):
+        global x, u_numerical, steps
+        x, u_numerical, steps = compute_wave_propagation(L, w, k0, v, N, dt, T)
+    fig = go.Figure(
+        data=[
+            go.Scatter(
+                x=x,
+                y=np.real(u_numerical[time_step, :]),
+                mode="lines",
+                name="Numerical FFT Solution",
             ),
-        }
-        return fig_3d
-
-    @app.callback(
-        [
-            Output("interval-component", "disabled"),
-            Output("play-pause-button", "children"),
+        ]
+    )
+    fig.update_layout(
+        title="Reeldel plottet",
+        xaxis={"title": "x"},
+        yaxis={"title": "Amplitude", "range": [-1, 1]},
+        margin={"l": 40, "b": 40, "t": 50, "r": 10},
+        legend={"x": 0, "y": 1},
+        hovermode="closest",
+        annotations=[
+            dict(
+                x=0.5,
+                y=1.1,
+                xref="paper",
+                yref="paper",
+                text=f"Time: {time_step * dt:.2f} s",
+                showarrow=False,
+                font=dict(size=12),
+            )
         ],
-        [Input("play-pause-button", "n_clicks")],
-        [State("interval-component", "disabled")],
     )
-    def toggle_play_pause(n_clicks, is_disabled):
-        if is_disabled:
-            return False, "Pause"
-        else:
-            return True, "Play"
+    return fig
 
-    @app.callback(
-        Output("time-step-slider", "value"),
-        [Input("interval-component", "n_intervals")],
-        [State("time-step-slider", "value"), State("time-step-slider", "max")],
-    )
-    def advance_time_step(n_intervals, current_value, max_value):
-        new_value = (current_value + 1) % (max_value + 1)
-        return new_value
 
-    @app.callback(
-        Output("interval-component", "interval"), [Input("speed-slider", "value")]
-    )
-    def update_speed(value):
-        # Adjusting speed value conversion to interval if needed
-        return max(200 - value, 10) * 10  # Example adjustment, modify as needed
+@app.callback(
+    Output("3d-plot", "figure"),
+    [Input("compute-button", "n_clicks")],
+    [
+        State("L-value", "value"),
+        State("w-value", "value"),
+        State("k0-value", "value"),
+        State("v-value", "value"),
+        State("N-value", "value"),
+        State("dt-value", "value"),
+        State("T-value", "value"),
+    ],
+)
+def update_3d_plot(n_clicks, L, w, k0, v, N, dt, T):
+    # Re-compute only if compute button is clicked
+    ctx = callback_context
+    if (
+        not ctx.triggered
+        or ctx.triggered[0]["prop_id"].split(".")[0] == "compute-button"
+    ):
+        x, u_numerical, steps = compute_wave_propagation(L, w, k0, v, N, dt, T)
+    fig_3d = {
+        "data": [go.Surface(z=np.real(u_numerical))],
+        "layout": go.Layout(
+            title="Løsning til Lineære del af ikke-lineære Schrödingerligning",
+            scene=dict(
+                xaxis_title="x",
+                yaxis_title="t",
+                zaxis_title="u(x,t)",
+                xaxis=dict(tickvals=[], title="x"),  # Remove x-axis tick mark values
+                yaxis=dict(tickvals=[], title="t"),  # Remove y-axis tick mark values
+                zaxis=dict(
+                    tickvals=[], title="u(x,t)"
+                ),  # Remove z-axis tick mark values
+            ),
+            width=1000,
+            height=750,
+            margin=dict(l=65, r=50, b=65, t=90),
+        ),
+    }
+    return fig_3d
 
-    # Update 'max' property of the time-step slider
-    @app.callback(
-        Output("time-step-slider", "max"),
-        [Input("compute-button", "n_clicks")],
-        [State("T-value", "value"), State("dt-value", "value")],
-    )
-    def update_slider_max(n_clicks, T, dt):
-        steps = int(T / dt)
-        return steps - 1
+
+@app.callback(
+    [Output("interval-component", "disabled"), Output("play-pause-button", "children")],
+    [Input("play-pause-button", "n_clicks")],
+    [State("interval-component", "disabled")],
+)
+def toggle_play_pause(n_clicks, is_disabled):
+    if is_disabled:
+        return False, "Pause"
+    else:
+        return True, "Play"
+
+
+@app.callback(
+    Output("time-step-slider", "value"),
+    [Input("interval-component", "n_intervals")],
+    [State("time-step-slider", "value"), State("time-step-slider", "max")],
+)
+def advance_time_step(n_intervals, current_value, max_value):
+    new_value = (current_value + 1) % (max_value + 1)
+    return new_value
+
+
+@app.callback(
+    Output("interval-component", "interval"), [Input("speed-slider", "value")]
+)
+def update_speed(value):
+    # Adjusting speed value conversion to interval if needed
+    return max(200 - value, 10) * 10  # Example adjustment, modify as needed
+
+
+# Update 'max' property of the time-step slider
+@app.callback(
+    Output("time-step-slider", "max"),
+    [Input("compute-button", "n_clicks")],
+    [State("T-value", "value"), State("dt-value", "value")],
+)
+def update_slider_max(n_clicks, T, dt):
+    steps = int(T / dt)
+    return steps - 1
+
+
+if __name__ == "__main__":
+    app.run_server(port=8055, debug=True)

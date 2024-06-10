@@ -1,3 +1,7 @@
 - lav fejlplot over tid for et givent N. 
 - analytisk udledning af konvergens O(hurlumhej)?
+- Msq mod cpu tid 
+- Msq mod N 
+- Infnorm mod cpu tid 
+- Infnorm mod N
 

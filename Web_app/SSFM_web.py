@@ -145,6 +145,9 @@ $$
 u(x,0) = A \space sech(A \sqrt{\frac{C2}{2C1}}(x-\theta)) e^{i \frac{v}{2 \space C1}x + i \sigma}
 $$
 
+**_Bemærk_**: Amplituden $A$ er sat til 1.
+
+
 """
 # Markdown text after 3d plot before precision/N plot and precision/cpu time plot
 markdown_text_2 = r"""
@@ -575,6 +578,17 @@ def update_line_plot(
         margin={"l": 40, "b": 40, "t": 50, "r": 10},
         legend={"x": 0, "y": 1},
         hovermode="closest",
+        annotations=[
+            dict(
+                x=0.5,
+                y=1.1,
+                xref="paper",
+                yref="paper",
+                text=f"Time: {time_step * dt:.2f} s",
+                showarrow=False,
+                font=dict(size=12),
+            )
+        ],
     )
     return fig
 

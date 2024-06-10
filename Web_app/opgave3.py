@@ -3,12 +3,10 @@ import numpy as np
 import plotly.graph_objs as go
 from dash import Dash, Input, Output, State, callback_context, dcc, html
 
-# app = Dash(__name__)
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
-
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 
-app.title = "Simpel Bølgeligning fra projektplan med beg(2)"
+app.title = "Opgave 3"
 
 
 def compute_wave_propagation(L, w, k0, v, N, dt, T):
@@ -16,34 +14,26 @@ def compute_wave_propagation(L, w, k0, v, N, dt, T):
     steps = int(T / dt)
     x = np.linspace(-L / 2, L / 2, N, endpoint=False)
     k = 2 * np.pi * np.fft.fftfreq(N, d=dx)
-    # Initial condition
-    A = 0.5
-    u0 = A * np.exp(-((x / w) ** 2))
-    # np.exp(-(x**2/ w**2)) * (1/2*np.exp(-1j*k0*x) + 1/2*np.exp(1j*k0*x))
-
-    # Numerical solution using FFT
+    u0 = np.cos(k0 * x) * np.exp(-((x / w) ** 2))
     u_numerical = np.zeros((steps, N), dtype=np.complex64)
     A_numerical = np.zeros((steps, N), dtype=np.complex64)
     A_numerical[0, :] = np.fft.fft(u0)
-
-    n_values = np.arange(1, steps)[:, np.newaxis]  # Add new axis to align shapes
-    u_numerical[1:, :] = (
-        2 * A_numerical[0, :] * np.cos(np.sqrt(k**2 + 1) * dt * v * n_values)
+    n_values = np.arange(1, steps)[:, np.newaxis]
+    u_numerical[1:, :] = A_numerical[0, :] * np.cos(
+        v * np.sqrt(k**2 + 20) * dt * n_values
     )
-
     u_numerical = np.fft.ifft(u_numerical, axis=1)
-
     return x, u_numerical, steps
 
 
 # Set initial conditions
-initial_L = 50
+initial_L = 120
 initial_w = 1
 initial_k0 = 5
-initial_N = 1000
+initial_N = 256
 initial_dt = 0.025
-initial_T = 50
-initial_v = 2
+initial_T = 15
+initial_v = 1
 
 # Perform initial computation
 x, u_numerical, steps = compute_wave_propagation(
@@ -51,21 +41,21 @@ x, u_numerical, steps = compute_wave_propagation(
 )
 
 markdown_text = r"""
-## Den Simple bølgeligning
-
+## Opgave 3.
 
 $
-\frac{\partial^2 u}{\partial t^2} - \frac{\partial^2 u}{\partial x^2} + u = 0
+\frac{\partial^2 u}{\partial x^2} - \frac{1}{v^2} \frac{\partial^2 u}{\partial t^2} - u = 0
 $
 Med begyndelsesbetingelse: 
 
 $
-u(x, 0) = A \exp\left(-\left(\frac{x}{w}\right)^2\right),   A=0.5 
+u(x, 0) = \exp\left(-\frac{x^2}{w^2}\right)\left(\frac{1}{2}e^{ik_0x} + \frac{1}{2}e^{-ik_0x}\right)
 $
-
-
+  og  
+$
+\frac{\partial u(x, 0)}{\partial t} = 0
+$
 """
-
 
 app.layout = html.Div(
     [
@@ -226,7 +216,7 @@ app.layout = html.Div(
         ),
         dcc.Interval(
             id="interval-component",
-            interval=1000,  # in milliseconds
+            interval=1000,
             n_intervals=0,
             disabled=True,
         ),
@@ -237,7 +227,7 @@ app.layout = html.Div(
                     figure={
                         "data": [go.Surface(z=np.real(u_numerical))],
                         "layout": go.Layout(
-                            title="Løsning til Lineære del af ikke-lineære Schrödingerligning",
+                            title="Løsning til Opgave 3",
                             scene=dict(
                                 xaxis_title="x",
                                 yaxis_title="t",
@@ -253,7 +243,7 @@ app.layout = html.Div(
                                 ),  # Remove z-axis tick mark values
                             ),
                             width=1000,
-                            height=750,
+                            height=1000,
                             margin=dict(l=65, r=50, b=65, t=90),
                         ),
                     },
@@ -262,10 +252,6 @@ app.layout = html.Div(
         ),
     ]
 )
-
-
-## Section 2
-# Callbacks for updating the figure, playing/pausing, and animation speed
 
 
 @app.callback(
@@ -290,6 +276,7 @@ def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
     ):
         global x, u_numerical, steps
         x, u_numerical, steps = compute_wave_propagation(L, w, k0, v, N, dt, T)
+
     fig = go.Figure(
         data=[
             go.Scatter(
@@ -307,8 +294,59 @@ def update_output(time_step, n_clicks, L, w, k0, v, N, dt, T):
         margin={"l": 40, "b": 40, "t": 50, "r": 10},
         legend={"x": 0, "y": 1},
         hovermode="closest",
+        annotations=[
+            dict(
+                x=0.5,
+                y=1.1,
+                xref="paper",
+                yref="paper",
+                text=f"Time: {time_step * dt:.2f} s",
+                showarrow=False,
+                font=dict(size=12),
+            )
+        ],
     )
     return fig
+
+
+@app.callback(
+    [Output("interval-component", "disabled"), Output("play-pause-button", "children")],
+    [Input("play-pause-button", "n_clicks")],
+    [State("interval-component", "disabled")],
+)
+def toggle_play_pause(n_clicks, is_disabled):
+    if is_disabled:
+        return False, "Pause"
+    else:
+        return True, "Play"
+
+
+@app.callback(
+    Output("time-step-slider", "value"),
+    [Input("interval-component", "n_intervals")],
+    [State("time-step-slider", "value"), State("time-step-slider", "max")],
+)
+def advance_time_step(n_intervals, current_value, max_value):
+    new_value = (current_value + 1) % (max_value + 1)
+    return new_value
+
+
+@app.callback(
+    Output("interval-component", "interval"), [Input("speed-slider", "value")]
+)
+def update_speed(value):
+    # Adjusting speed value conversion to interval if needed
+    return max(200 - value, 10) * 10  # Example adjustment, modify as needed
+
+
+@app.callback(
+    Output("time-step-slider", "max"),
+    [Input("compute-button", "n_clicks")],
+    [State("T-value", "value"), State("dt-value", "value")],
+)
+def update_slider_max(n_clicks, T, dt):
+    steps = int(T / dt)
+    return steps - 1
 
 
 @app.callback(
@@ -354,46 +392,5 @@ def update_3d_plot(n_clicks, L, w, k0, v, N, dt, T):
     return fig_3d
 
 
-@app.callback(
-    [Output("interval-component", "disabled"), Output("play-pause-button", "children")],
-    [Input("play-pause-button", "n_clicks")],
-    [State("interval-component", "disabled")],
-)
-def toggle_play_pause(n_clicks, is_disabled):
-    if is_disabled:
-        return False, "Pause"
-    else:
-        return True, "Play"
-
-
-@app.callback(
-    Output("time-step-slider", "value"),
-    [Input("interval-component", "n_intervals")],
-    [State("time-step-slider", "value"), State("time-step-slider", "max")],
-)
-def advance_time_step(n_intervals, current_value, max_value):
-    new_value = (current_value + 1) % (max_value + 1)
-    return new_value
-
-
-@app.callback(
-    Output("interval-component", "interval"), [Input("speed-slider", "value")]
-)
-def update_speed(value):
-    # Adjusting speed value conversion to interval if needed
-    return max(200 - value, 10) * 10  # Example adjustment, modify as needed
-
-
-# Update 'max' property of the time-step slider
-@app.callback(
-    Output("time-step-slider", "max"),
-    [Input("compute-button", "n_clicks")],
-    [State("T-value", "value"), State("dt-value", "value")],
-)
-def update_slider_max(n_clicks, T, dt):
-    steps = int(T / dt)
-    return steps - 1
-
-
 if __name__ == "__main__":
-    app.run_server(port=8055, debug=True)
+    app.run_server(port=8053, debug=True)
