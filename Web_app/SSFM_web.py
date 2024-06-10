@@ -714,7 +714,7 @@ def update_slider_max(n_clicks, T, dt):
 )
 def update_speed(value):
     # Adjusting speed value conversion to interval if needed
-    return max(200 - value, 10) * 10  # Example adjustment, modify as needed
+    return max(200 - value, 10) * 100  # Example adjustment, modify as needed
 
 
 ## callbacks for precision/N plot and precision/cpu time plot
